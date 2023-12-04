@@ -1,10 +1,8 @@
-Kernel booting process. Part 1.
-================================================================================
+# Kernel booting process. Part 1.
 
-From the bootloader to the kernel
---------------------------------------------------------------------------------
+## From the bootloader to the kernel
 
-If you read my previous [blog posts](https://0xax.github.io/categories/assembler/), you might have noticed that I  have been involved with low-level programming for some time. I wrote some posts about assembly programming for `x86_64` Linux and, at the same time, started to dive into the Linux kernel source code.
+If you read my previous [blog posts](https://0xax.github.io/categories/assembler/), you might have noticed that I have been involved with low-level programming for some time. I wrote some posts about assembly programming for `x86_64` Linux and, at the same time, started to dive into the Linux kernel source code.
 
 I have a great interest in understanding how low-level things work, how programs run on my computer, how they are located in memory, how the kernel manages processes and memory, how the network stack works at a low level, and many many other things. So, I decided to write yet another series of posts about the Linux kernel for the **x86_64** architecture.
 
@@ -12,23 +10,22 @@ Note that I'm not a professional kernel hacker and I don't write code for the ke
 
 All posts will also be accessible at [github repo](https://github.com/0xAX/linux-insides) and, if you find something wrong with my English or the post content, feel free to send a pull request.
 
-*Note that this isn't official documentation, just learning and sharing knowledge.*
+_Note that this isn't official documentation, just learning and sharing knowledge._
 
 **Required knowledge**
 
-* Understanding C code
-* Understanding assembly code (AT&T syntax)
+- Understanding C code
+- Understanding assembly code (AT&T syntax)
 
 Anyway, if you're just starting to learn such tools, I will try to explain some parts during this and the following posts. Alright, this is the end of the simple introduction. Let's start to dive into the Linux kernel and low-level stuff!
 
 I started writing these posts at the time of the `3.18` Linux kernel, and many things have changed since that time. If there are changes, I will update the posts accordingly.
 
-The Magical Power Button, What happens next?
---------------------------------------------------------------------------------
+## O Büyülü Güç Tuşu, Peki ya sonra?
 
-Although this is a series of posts about the Linux kernel, we won't start directly from the kernel code. As soon as you press the magical power button on your laptop or desktop computer, it starts working. The motherboard sends a signal to the [power supply](https://en.wikipedia.org/wiki/Power_supply) device. After receiving the signal, the power supply provides the proper amount of electricity to the computer. Once the motherboard receives the [power good signal](https://en.wikipedia.org/wiki/Power_good_signal), it tries to start the CPU. The CPU resets all leftover data in its registers and sets predefined values for each of them.
+Bu yazı serisi her ne kadar Linux çekirdeği hakkında olsa da, doğrudan çekirdek kodundan başlamayacağız. Dizüstü veya masaüstü bilgisayarınızdaki sihirli güç tuşuna bastığınız anda çalışmaya başlayacaktır. Anakart, [power supply / güç kaynağı](https://en.wikipedia.org/wiki/Power_supply) aygıtına bir sinyal gönderir. Bu sinyal alındıktan sonra, güç kaynağı, bilgisayara uygun miktarda elektrik sağlar. Anakart, [power good signal / güç iyi sinyali](https://en.wikipedia.org/wiki/Power_good_signal) aldıktan sonra, MİB'i (Merkezi İşlemci Birimi, bkz. [CPU](https://en.wikipedia.org/wiki/Central_processing_unit)) başlatmayı dener. MİB, yazmaçlarındaki ([register](https://en.wikipedia.org/wiki/Processor_register)) bütün arta kalan verileri temizler ve yerlerine daha önceden tanımlanmış değerleri koyar.
 
-The [80386](https://en.wikipedia.org/wiki/Intel_80386) and later CPUs define the following predefined data in CPU registers after the computer resets:
+[80386](https://en.wikipedia.org/wiki/Intel_80386) ve sonraki MİB'ler, bilgisayar yeniden başlatıldığında, aşağıda yer alan önceden tanımlanmış değerleri MİB yazmaçlarına tanımlar.
 
 ```
 IP          0xfff0
@@ -36,7 +33,7 @@ CS selector 0xf000
 CS base     0xffff0000
 ```
 
-The processor starts working in [real mode](https://en.wikipedia.org/wiki/Real_mode). Let's back up a little and try to understand [memory segmentation](https://en.wikipedia.org/wiki/Memory_segmentation) in this mode. Real mode is supported on all x86-compatible processors, from the [8086](https://en.wikipedia.org/wiki/Intel_8086) CPU all the way to the modern Intel 64-bit CPUs. The `8086` processor has a 20-bit address bus, which means that it could work with a `0-0xFFFFF` or `1 megabyte` address space. But it only has `16-bit` registers, which have a maximum address of `2^16 - 1` or `0xffff` (64 kilobytes).
+İşlemci [real mode / gerçek mod](https://en.wikipedia.org/wiki/Real_mode) da çalışmaya başlar. Hadi birazcık geriye gidelim ve bu moddaki [memory segmentation / hafıza bölütleme](https://en.wikipedia.org/wiki/Memory_segmentation)nu anlamaya çalışalım. Gerçek mod, [8086](https://en.wikipedia.org/wiki/Intel_8086) işlemcilerden, modern Intel 64-bit MİB'lere kadar tüm x86 uyumlu işlemcilerde desteklenir. `8086` işlemci 20 bitlik adres veriyoluna (address bus) sahiptir. Bu, `0-0xFFFFF` veya `1 megabayt` adres uzayında çalışabileceği anlamına gelir. Ancak bu sadece `2^16 - 1` veya `0xffff` (64 kilobaytlık) maksimum adrese sahip olan `16 bit` yazmaçlara sahip olduğu anlamına gelir.
 
 [Memory segmentation](https://en.wikipedia.org/wiki/Memory_segmentation) is used to make use of all the address space available. All memory is divided into small, fixed-size segments of `65536` bytes (64 KB). Since we cannot address memory above `64 KB` with 16-bit registers, an alternate method was devised.
 
@@ -64,7 +61,7 @@ which is `65520` bytes past the first megabyte. Since only one megabyte is acces
 
 Ok, now we know a little bit about real mode and its memory addressing. Let's get back to discussing register values after reset.
 
-The `CS` register consists of two parts: the visible segment selector and the hidden base address.  In real-address mode, the base address is normally formed by shifting the 16-bit segment selector value 4 bits to the left to produce a 20-bit base address. However, during a hardware reset the segment selector in the CS register is loaded with `0xf000` and the base address is loaded with `0xffff0000`. The processor uses this special base address until `CS` changes.
+The `CS` register consists of two parts: the visible segment selector and the hidden base address. In real-address mode, the base address is normally formed by shifting the 16-bit segment selector value 4 bits to the left to produce a 20-bit base address. However, during a hardware reset the segment selector in the CS register is loaded with `0xf000` and the base address is loaded with `0xffff0000`. The processor uses this special base address until `CS` changes.
 
 The starting address is formed by adding the base address to the value in the EIP register:
 
@@ -191,8 +188,7 @@ At the beginning of this post, I wrote that the first instruction executed by th
 
 At the start of execution, the BIOS is not in RAM, but in ROM.
 
-Bootloader
---------------------------------------------------------------------------------
+## Bootloader
 
 There are a number of bootloaders that can boot Linux, such as [GRUB 2](https://www.gnu.org/software/grub/) and [syslinux](http://www.syslinux.org/wiki/index.php/The_Syslinux_Project). The Linux kernel has a [Boot protocol](https://github.com/torvalds/linux/blob/v4.16/Documentation/x86/boot.txt) which specifies the requirements for a bootloader to implement Linux support. This example will describe GRUB 2.
 
@@ -253,8 +249,8 @@ where `X` is the address of the kernel boot sector being loaded. In my case, `X`
 
 ![kernel first address](images/kernel_first_address.png)
 
-How to get this memory dump in real mode?
---------------------------------------------------------------------------------
+## How to get this memory dump in real mode?
+
 ```
 root@parallels-vm:/usr/src/linux# more arch/x86/kernel/vmlinux.lds
 ...
@@ -281,12 +277,17 @@ Here we can see the memory address of the entry point, which is `0x0000000001000
 Before trying to debug the kernel, please see [Booting a Custom Linux Kernel in QEMU and Debugging It With GDB](http://nickdesaulniers.github.io/blog/2018/10/24/booting-a-custom-linux-kernel-in-qemu-and-debugging-it-with-gdb/)
 
 #### Step 1
+
 Booting in QEMU
+
 ```
 qemu-system-x86_64 -kernel /usr/src/linux-4.14.207/arch/x86_64/boot/bzImage -nographic -append "console=ttyS0 nokaslr" -initrd /data/busybox/busybox-1.28.0/initramfs.cpio.gz -S -s
 ```
+
 #### Step 2
+
 Attaching GDB to QEMU
+
 ```
 gdb vmlinux
 (gdb) target remote :1234
@@ -294,7 +295,9 @@ gdb vmlinux
 (gdb) c
 (gdb) dump binary memory /tmp/dump 0x0000 0x20000
 ```
+
 #### Step 3
+
 ```
 root@parallels-vm:/# hd /tmp/dump |grep -A 31 MZ
 00010000  4d 5a ea 07 00 c0 07 8c  c8 8e d8 8e c0 8e d0 31  |MZ.............1|
@@ -333,10 +336,9 @@ root@parallels-vm:/# hd /tmp/dump |grep -A 31 MZ
 
 The bootloader has now loaded the Linux kernel into memory, filled the header fields, and then jumped to the corresponding memory address. We now move directly to the kernel setup code.
 
-The Beginning of the Kernel Setup Stage
---------------------------------------------------------------------------------
+## The Beginning of the Kernel Setup Stage
 
-Finally, we are in the kernel! Technically, the kernel hasn't run yet. First, the kernel setup part must configure stuff such as the decompressor and some memory management related things, to name a few. After all these things are done, the kernel setup part will decompress the actual kernel and jump to it. Execution of the setup part starts from [arch/x86/boot/header.S](https://github.com/torvalds/linux/blob/v4.16/arch/x86/boot/header.S) at the [_start](https://github.com/torvalds/linux/blob/v4.16/arch/x86/boot/header.S#L292) symbol.
+Finally, we are in the kernel! Technically, the kernel hasn't run yet. First, the kernel setup part must configure stuff such as the decompressor and some memory management related things, to name a few. After all these things are done, the kernel setup part will decompress the actual kernel and jump to it. Execution of the setup part starts from [arch/x86/boot/header.S](https://github.com/torvalds/linux/blob/v4.16/arch/x86/boot/header.S) at the [\_start](https://github.com/torvalds/linux/blob/v4.16/arch/x86/boot/header.S#L292) symbol.
 
 It may look a bit strange at first sight, as there are several instructions before it. A long time ago, the Linux kernel had its own bootloader. Now, however, if you run, for example,
 
@@ -417,15 +419,14 @@ cs = 0x1020
 
 After the jump to `start_of_setup`, the kernel needs to do the following:
 
-* Make sure that all segment register values are equal
-* Set up a correct stack, if needed
-* Set up [bss](https://en.wikipedia.org/wiki/.bss)
-* Jump to the C code in [arch/x86/boot/main.c](https://github.com/torvalds/linux/blob/v4.16/arch/x86/boot/main.c)
+- Make sure that all segment register values are equal
+- Set up a correct stack, if needed
+- Set up [bss](https://en.wikipedia.org/wiki/.bss)
+- Jump to the C code in [arch/x86/boot/main.c](https://github.com/torvalds/linux/blob/v4.16/arch/x86/boot/main.c)
 
 Let's look at the implementation.
 
-Aligning the Segment Registers 
---------------------------------------------------------------------------------
+## Aligning the Segment Registers
 
 First of all, the kernel ensures that the `ds` and `es` segment registers point to the same address. Next, it clears the direction flag using the `cld` instruction:
 
@@ -453,8 +454,7 @@ which is at a `512` byte offset from [4d 5a](https://github.com/torvalds/linux/b
 
 which pushes the value of `ds` to the stack, followed by the address of the [6](https://github.com/torvalds/linux/blob/v4.16/arch/x86/boot/header.S#L602) label and executes the `lretw` instruction. When the `lretw` instruction is called, it loads the address of label `6` into the [instruction pointer](https://en.wikipedia.org/wiki/Program_counter) register and loads `cs` with the value of `ds`. Afterward, `ds` and `cs` will have the same values.
 
-Stack Setup
---------------------------------------------------------------------------------
+## Stack Setup
 
 Almost all of the setup code is for preparing the C language environment in real mode. The next [step](https://github.com/torvalds/linux/blob/v4.16/arch/x86/boot/header.S#L575) is checking the `ss` register's value and setting up a correct stack if `ss` is wrong:
 
@@ -467,13 +467,13 @@ Almost all of the setup code is for preparing the C language environment in real
 
 This can lead to 3 different scenarios:
 
-* `ss` has a valid value `0x1000` (as do all the other segment registers besides `cs`)
-* `ss` is invalid and the `CAN_USE_HEAP` flag is set     (see below)
-* `ss` is invalid and the `CAN_USE_HEAP` flag is not set (see below)
+- `ss` has a valid value `0x1000` (as do all the other segment registers besides `cs`)
+- `ss` is invalid and the `CAN_USE_HEAP` flag is set (see below)
+- `ss` is invalid and the `CAN_USE_HEAP` flag is not set (see below)
 
 Let's look at all three of these scenarios in turn:
 
-* `ss` has a correct address (`0x1000`). In this case, we go to label [2](https://github.com/torvalds/linux/blob/v4.16/arch/x86/boot/header.S#L589):
+- `ss` has a correct address (`0x1000`). In this case, we go to label [2](https://github.com/torvalds/linux/blob/v4.16/arch/x86/boot/header.S#L589):
 
 ```assembly
 2:  andw    $~3, %dx
@@ -488,7 +488,7 @@ Here we set the alignment of `dx` (which contains the value of `sp` as given by 
 
 ![stack](images/stack1.png)
 
-* The second scenario, (`ss` != `ds`). First, we put the value of [_end](https://github.com/torvalds/linux/blob/v4.16/arch/x86/boot/setup.ld) (the address of the end of the setup code) into `dx` and check the `loadflags` header field using the `testb` instruction to see whether we can use the heap. [loadflags](https://github.com/torvalds/linux/blob/v4.16/arch/x86/boot/header.S#L320) is a bitmask header defined as:
+- The second scenario, (`ss` != `ds`). First, we put the value of [\_end](https://github.com/torvalds/linux/blob/v4.16/arch/x86/boot/setup.ld) (the address of the end of the setup code) into `dx` and check the `loadflags` header field using the `testb` instruction to see whether we can use the heap. [loadflags](https://github.com/torvalds/linux/blob/v4.16/arch/x86/boot/header.S#L320) is a bitmask header defined as:
 
 ```C
 #define LOADED_HIGH     (1<<0)
@@ -514,12 +514,11 @@ If the `CAN_USE_HEAP` bit is set, we put `heap_end_ptr` into `dx` (which points 
 
 ![stack](images/stack2.png)
 
-* When `CAN_USE_HEAP` is not set, we just use a minimal stack from `_end` to `_end + STACK_SIZE`:
+- When `CAN_USE_HEAP` is not set, we just use a minimal stack from `_end` to `_end + STACK_SIZE`:
 
 ![minimal stack](images/minimal_stack.png)
 
-BSS Setup
---------------------------------------------------------------------------------
+## BSS Setup
 
 The last two steps that need to happen before we can jump to the main C code are setting up the [BSS](https://en.wikipedia.org/wiki/.bss) area and checking the "magic" signature. First, signature checking:
 
@@ -543,12 +542,11 @@ The BSS section is used to store statically allocated, uninitialized data. Linux
     rep; stosl
 ```
 
-First, the [__bss_start](https://github.com/torvalds/linux/blob/v4.16/arch/x86/boot/setup.ld) address is moved into `di`. Next, the `_end + 3` address (+3 - aligns to 4 bytes) is moved into `cx`. The `eax` register is cleared (using the `xor` instruction), and the bss section size (`cx - di`) is calculated and put into `cx`. Then, `cx` is divided by four (the size of a 'word'), and the `stosl` instruction is used repeatedly, storing the value of `eax` (zero) into the address pointed to by `di`, automatically increasing `di` by four, repeating until `cx` reaches zero. The net effect of this code is that zeros are written through all words in memory from `__bss_start` to `_end`:
+First, the [\_\_bss_start](https://github.com/torvalds/linux/blob/v4.16/arch/x86/boot/setup.ld) address is moved into `di`. Next, the `_end + 3` address (+3 - aligns to 4 bytes) is moved into `cx`. The `eax` register is cleared (using the `xor` instruction), and the bss section size (`cx - di`) is calculated and put into `cx`. Then, `cx` is divided by four (the size of a 'word'), and the `stosl` instruction is used repeatedly, storing the value of `eax` (zero) into the address pointed to by `di`, automatically increasing `di` by four, repeating until `cx` reaches zero. The net effect of this code is that zeros are written through all words in memory from `__bss_start` to `_end`:
 
 ![bss](images/bss.png)
 
-Jump to main
---------------------------------------------------------------------------------
+## Jump to main
 
 That's all! We have the stack and BSS, so we can jump to the `main()` C function:
 
@@ -558,25 +556,23 @@ That's all! We have the stack and BSS, so we can jump to the `main()` C function
 
 The `main()` function is located in [arch/x86/boot/main.c](https://github.com/torvalds/linux/blob/v4.16/arch/x86/boot/main.c). You can read about what this does in the next part.
 
-Conclusion
---------------------------------------------------------------------------------
+## Conclusion
 
 This is the end of the first part about Linux kernel insides. If you have questions or suggestions, ping me on Twitter [0xAX](https://twitter.com/0xAX), drop me an [email](mailto:anotherworldofworld@gmail.com), or just create an [issue](https://github.com/0xAX/linux-internals/issues/new). In the next part, we will see the first C code that executes in the Linux kernel setup, the implementation of memory routines such as `memset`, `memcpy`, `earlyprintk`, early console implementation and initialization, and much more.
 
 **Please note that English is not my first language and I am really sorry for any inconvenience. If you find any mistakes please send me PR to [linux-insides](https://github.com/0xAX/linux-internals).**
 
-Links
---------------------------------------------------------------------------------
+## Links
 
-  * [Intel 80386 programmer's reference manual 1986](http://css.csail.mit.edu/6.858/2014/readings/i386.pdf)
-  * [Minimal Boot Loader for Intel® Architecture](https://www.cs.cmu.edu/~410/doc/minimal_boot.pdf)
-  * [Minimal Boot Loader in Assembler with comments](https://github.com/Stefan20162016/linux-insides-code/blob/master/bootloader.asm)
-  * [8086](https://en.wikipedia.org/wiki/Intel_8086)
-  * [80386](https://en.wikipedia.org/wiki/Intel_80386)
-  * [Reset vector](https://en.wikipedia.org/wiki/Reset_vector)
-  * [Real mode](https://en.wikipedia.org/wiki/Real_mode)
-  * [Linux kernel boot protocol](https://www.kernel.org/doc/Documentation/x86/boot.txt)
-  * [coreboot developer manual](https://www.coreboot.org/Developer_Manual)
-  * [Ralf Brown's Interrupt List](http://www.ctyme.com/intr/int.htm)
-  * [Power supply](https://en.wikipedia.org/wiki/Power_supply)
-  * [Power good signal](https://en.wikipedia.org/wiki/Power_good_signal)
+- [Intel 80386 programmer's reference manual 1986](http://css.csail.mit.edu/6.858/2014/readings/i386.pdf)
+- [Minimal Boot Loader for Intel® Architecture](https://www.cs.cmu.edu/~410/doc/minimal_boot.pdf)
+- [Minimal Boot Loader in Assembler with comments](https://github.com/Stefan20162016/linux-insides-code/blob/master/bootloader.asm)
+- [8086](https://en.wikipedia.org/wiki/Intel_8086)
+- [80386](https://en.wikipedia.org/wiki/Intel_80386)
+- [Reset vector](https://en.wikipedia.org/wiki/Reset_vector)
+- [Real mode](https://en.wikipedia.org/wiki/Real_mode)
+- [Linux kernel boot protocol](https://www.kernel.org/doc/Documentation/x86/boot.txt)
+- [coreboot developer manual](https://www.coreboot.org/Developer_Manual)
+- [Ralf Brown's Interrupt List](http://www.ctyme.com/intr/int.htm)
+- [Power supply](https://en.wikipedia.org/wiki/Power_supply)
+- [Power good signal](https://en.wikipedia.org/wiki/Power_good_signal)
