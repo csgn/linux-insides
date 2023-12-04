@@ -1,6 +1,6 @@
-# Kernel booting process. Part 1.
+# Çekirdeğin Önyükleme İşlemi. Bölüm 1.
 
-## From the bootloader to the kernel
+## Önyükleyiciden çekirdeğe
 
 If you read my previous [blog posts](https://0xax.github.io/categories/assembler/), you might have noticed that I have been involved with low-level programming for some time. I wrote some posts about assembly programming for `x86_64` Linux and, at the same time, started to dive into the Linux kernel source code.
 
@@ -33,17 +33,17 @@ CS selector 0xf000
 CS base     0xffff0000
 ```
 
-İşlemci [real mode / gerçek mod](https://en.wikipedia.org/wiki/Real_mode) da çalışmaya başlar. Hadi birazcık geriye gidelim ve bu moddaki [memory segmentation / hafıza bölütleme](https://en.wikipedia.org/wiki/Memory_segmentation)nu anlamaya çalışalım. Gerçek mod, [8086](https://en.wikipedia.org/wiki/Intel_8086) işlemcilerden, modern Intel 64-bit MİB'lere kadar tüm x86 uyumlu işlemcilerde desteklenir. `8086` işlemci 20 bitlik adres veriyoluna (address bus) sahiptir. Bu, `0-0xFFFFF` veya `1 megabayt` adres uzayında çalışabileceği anlamına gelir. Ancak bu sadece `2^16 - 1` veya `0xffff` (64 kilobaytlık) maksimum adrese sahip olan `16 bit` yazmaçlara sahip olduğu anlamına gelir.
+İşlemci [real mode / gerçek mod](https://en.wikipedia.org/wiki/Real_mode) da çalışmaya başlar. Hadi birazcık geriye gidelim ve bu moddaki [memory segmentation / hafıza bölütleme](https://en.wikipedia.org/wiki/Memory_segmentation)yi anlamaya çalışalım. Gerçek mod, [8086](https://en.wikipedia.org/wiki/Intel_8086) işlemcilerden, modern Intel 64-bit MİB'lere kadar tüm x86 uyumlu işlemcilerde desteklenir. `8086` işlemci 20 bitlik adres veriyoluna (address bus) sahiptir. Bu, `0-0xFFFFF` veya `1 megabayt` adres uzayında çalışabileceği anlamına gelir. Ancak bu sadece `2^16 - 1` veya `0xffff` (64 kilobaytlık) maksimum adrese sahip olan `16 bit` yazmaçlara sahip olduğu anlamına gelir.
 
-[Memory segmentation](https://en.wikipedia.org/wiki/Memory_segmentation) is used to make use of all the address space available. All memory is divided into small, fixed-size segments of `65536` bytes (64 KB). Since we cannot address memory above `64 KB` with 16-bit registers, an alternate method was devised.
+[Memory segmentation / Hafıza bölütleme](https://en.wikipedia.org/wiki/Memory_segmentation) mevcut olan bütün adres uzayını kullanmak için kullanır. Bütün hafıza, sabit boyutta `65536` baytlık (64 KB), küçük parçalara bölünmüştür. 16 bitlik yazmaçlarla, `64 KB` ın üzerindeki hafıza adreslenemediği için başka bir yöntem tasarlandı.
 
-An address consists of two parts: a segment selector, which has a base address; and an offset from this base address. In real mode, the associated base address of a segment selector is `Segment Selector * 16`. Thus, to get a physical address in memory, we need to multiply the segment selector part by `16` and add the offset to it:
+Bir adres iki parçayı içerir: Bir temel adrese (base address) sahip olan, bir bölüt seçici (segment selector); ve bu temel adresten bir uzaklık (offset). Gerçek modda, bir bölüt seçicinin ilişkili temel adresi `Bölüt Seçici * 16` dır. Bu nedenle, hafızadaki bir fiziksel adresi almak için, bölüt seçici bölümünü `16` ile çarpıp uzaklığı (offset) eklememiz gerekiyor.
 
 ```
-PhysicalAddress = Segment Selector * 16 + Offset
+FizikselAdres = Bölüt Seçici * 16 + Uzaklık
 ```
 
-For example, if `CS:IP` is `0x2000:0x0010`, then the corresponding physical address will be:
+Örneğin, eğer `CS:IP`, `0x2000:0x0010` ise karşılık gelen fiziksel adres şu olacaktır:
 
 ```python
 >>> hex((0x2000 << 4) + 0x0010)
