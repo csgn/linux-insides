@@ -2,24 +2,24 @@
 
 ## Önyükleyiciden çekirdeğe
 
-If you read my previous [blog posts](https://0xax.github.io/categories/assembler/), you might have noticed that I have been involved with low-level programming for some time. I wrote some posts about assembly programming for `x86_64` Linux and, at the same time, started to dive into the Linux kernel source code.
+Eğer önceki [blog yazılarıma](https://0xax.github.io/categories/assembler/) göz attıysanız, bir süredir düşük seviyeli programlamayla ilgilendiğimi fark etmiş olabilirsiniz. x86_64 Linux için Assembly programlama üzerine yazılar yazdım ve aynı zamanda Linux çekirdeğinin kaynak koduna dalmaya başladım.
 
-I have a great interest in understanding how low-level things work, how programs run on my computer, how they are located in memory, how the kernel manages processes and memory, how the network stack works at a low level, and many many other things. So, I decided to write yet another series of posts about the Linux kernel for the **x86_64** architecture.
+Düşük seviyeli şeylerin nasıl çalıştığını, bilgisayarım üzerinde programların nasıl çalıştığını, bellekte nasıl yer aldıklarını, çekirdeğin süreçleri ve belleği nasıl yönettiğini, ağ yığınının düşük seviyede nasıl çalıştığını ve birçok başka şeyi anlama konusunda büyük bir ilgiye sahibim. Bu nedenle, **x86_64** mimarisi için Linux çekirdeği hakkında başka bir dizi yazı yazmaya karar verdim.
 
-Note that I'm not a professional kernel hacker and I don't write code for the kernel at work. It's just a hobby. I just like low-level stuff, and it is interesting for me to see how these things work. So if you notice anything confusing, or if you have any questions/remarks, ping me on Twitter [0xAX](https://twitter.com/0xAX), drop me an [email](mailto:anotherworldofworld@gmail.com) or just create an [issue](https://github.com/0xAX/linux-insides/issues/new). I appreciate it.
+Unutmayın ki ben profesyonel bir Linux çekirdeği uzmanı değilim ve iş yerimde çekirdek için kod yazmıyorum. Bunu sadece hobi için yapıyorum. Düşük seviyeli şeyleri seviyorum ve bu şeylerin nasıl çalıştığını görmek benim için ilginç. Dolayısıyla, herhangi bir karışıklık fark ederseniz veya herhangi bir sorunuz/yorumunuz varsa, beni Twitter'da [0xAX](https://twitter.com/0xAX) üzerinden etiketleyebilir, bana bir [e-posta](mailto:anotherworldofworld@gmail.com) gönderebilir veya sadece bir [issue](https://github.com/0xAX/linux-insides/issues/new) oluşturabilirsiniz. Bunun için minnettarım.
 
-All posts will also be accessible at [github repo](https://github.com/0xAX/linux-insides) and, if you find something wrong with my English or the post content, feel free to send a pull request.
+Tüm yazılar ayrıca [GitHub depomdan](https://github.com/0xAX/linux-insides) erişilebilir olacak ve eğer İngilizce veya yazı içeriğimle ilgili bir hata bulursanız, lütfen bir pull request göndermekten çekinmeyin.
 
-_Note that this isn't official documentation, just learning and sharing knowledge._
+Bu resmi belge değildir, sadece öğrenme ve bilgi paylaşma amaçlıdır.
 
-**Required knowledge**
+**Gerekli Bilgi**
 
-- Understanding C code
-- Understanding assembly code (AT&T syntax)
+- C kodunu anlama
+- Assembly kodunu anlama (AT&T sözdizimi)
 
-Anyway, if you're just starting to learn such tools, I will try to explain some parts during this and the following posts. Alright, this is the end of the simple introduction. Let's start to dive into the Linux kernel and low-level stuff!
+Her neyse, eğer bu tür araçları öğrenmeye yeni başlıyorsanız, bu ve takip eden yazılarda bazı bölümleri açıklamaya çalışacağım. Pekala, girişin sonuna geldik. Linux çekirdeğine ve düşük seviyeli konulara dalmaya başlayalım!
 
-I started writing these posts at the time of the `3.18` Linux kernel, and many things have changed since that time. If there are changes, I will update the posts accordingly.
+Bu yazıları `3.18`` Linux çekirdeği zamanında yazmaya başladım ve o zamandan beri birçok şey değişti. Eğer değişiklikler varsa, yazıları buna göre güncelleyeceğim.
 
 ## O Büyülü Güç Tuşu, Peki ya sonra?
 
@@ -50,7 +50,7 @@ FizikselAdres = Bölüt Seçici * 16 + Uzaklık
 '0x20010'
 ```
 
-But, if we take the largest segment selector and offset, `0xffff:0xffff`, then the resulting address will be:
+Ancak, en uzun bölüt seçiciyi ve uzaklığı alırsak, `0xffff:0xffff`, ortaya çıkan adres şöyle olacaktır:
 
 ```python
 >>> hex((0xffff << 4) + 0xffff)
